@@ -113,7 +113,10 @@ final class HerdrClient {
     }
     func output(_ id: String) throws -> Row {
         let (machine, row) = try resolve(id)
-        return ["id":id, "provider":row["agent"] ?? "", "text":try call(machine, ["agent", "read", row["pane_id"] as! String, "--source", "recent-unwrapped", "--lines", "180"])]
+        return ["id":id, "provider":row["agent"] ?? "", "text":try call(machine, (row["agent"] as? String) == "claude"
+            // Claude Code uses the alternate screen; reading history makes Herdr scroll the live pane.
+            ? ["agent", "read", row["pane_id"] as! String, "--source", "visible"]
+            : ["agent", "read", row["pane_id"] as! String, "--source", "recent-unwrapped", "--lines", "180"])]
     }
     func prompt(_ id: String, _ message: String) throws -> Row {
         guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, message.utf8.count <= 60000, !message.contains("\0"), !message.hasPrefix("-") else { throw HUDError("Enter a prompt under 60 KB that does not start with a dash.") }

@@ -21,6 +21,11 @@ public sealed class HerdrClient
     readonly Func<Invocation, Task<string>> execute;
     readonly string binary, sourceTarget, sourceSession;
     readonly Dictionary<string, List<JsonObject>> cache = new();
+    // Claude Code draws in the alternate screen: asking Herdr for history makes it scroll the live pane
+    // while idle (and fail while working), so read only what is on screen for it.
+    internal static string[] ReadArgs(string provider, string pane) => provider == "claude"
+        ? ["agent", "read", pane, "--source", "visible"]
+        : ["agent", "read", pane, "--source", "recent-unwrapped", "--lines", "180"];
     Dictionary<string, (Machine Machine, JsonObject Agent)> bindings = new();
     List<Machine> machines = [];
     const string Script = "unset HERDR_ENV HERDR_SOCKET_PATH HERDR_CONFIG_PATH HERDR_SESSION HERDR_SESSION_NAME HERDR_WORKSPACE_ID HERDR_TAB_ID HERDR_PANE_ID HERDR_TERMINAL_ID; if [ -x \"$HOME/.local/bin/herdr\" ]; then exec \"$HOME/.local/bin/herdr\" \"$@\"; elif [ -x /opt/homebrew/bin/herdr ]; then exec /opt/homebrew/bin/herdr \"$@\"; else exec herdr \"$@\"; fi";
@@ -124,7 +129,7 @@ public sealed class HerdrClient
     public async Task<JsonObject> Output(string id)
     {
         var (machine, agent) = await Resolve(id);
-        return new JsonObject { ["id"] = id, ["provider"] = agent.Text("agent"), ["text"] = await Call(machine, ["agent", "read", agent.Text("pane_id"), "--source", "recent-unwrapped", "--lines", "180"]) };
+        return new JsonObject { ["id"] = id, ["provider"] = agent.Text("agent"), ["text"] = await Call(machine, ReadArgs(agent.Text("agent"), agent.Text("pane_id"))) };
     }
     public async Task<JsonObject> Prompt(string id, string message)
     {
